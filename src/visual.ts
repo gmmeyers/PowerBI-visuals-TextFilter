@@ -38,14 +38,18 @@ import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnume
 import IVisualEventService = powerbi.extensibility.IVisualEventService;
 import { dataViewObjects } from "powerbi-visuals-utils-dataviewutils";
 import FilterAction = powerbi.FilterAction;
-import { IAdvancedFilter, AdvancedFilter } from "powerbi-models";
+import { IAdvancedFilter, AdvancedFilter, ITupleFilter, ITupleFilterTarget } from "powerbi-models";
 import * as d3 from "d3";
 import { TextBoxSettings, VisualSettings } from "./settings";
+import { values } from "d3";
 
 const pxToPt = 0.75,
-      fontPxAdjSml = 20,
-      fontPxAdjStd = 24,
-      fontPxAdjLrg = 26;
+  fontPxAdjSml = 20,
+  fontPxAdjStd = 24,
+  fontPxAdjLrg = 26;
+
+
+
 
 export class Visual implements IVisual {
 
@@ -56,6 +60,8 @@ export class Visual implements IVisual {
   private clearButton: d3.Selection<HTMLButtonElement, any, any, any>;
   private column: powerbi.DataViewMetadataColumn;
   private host: powerbi.extensibility.visual.IVisualHost;
+  private colArray = [];
+  private valArray = [];
   private settings: VisualSettings;
   private events: IVisualEventService;
 
@@ -101,9 +107,9 @@ export class Visual implements IVisual {
         const
           mouseEvent: MouseEvent = d3.event,
           selectionManager = options.host.createSelectionManager();
-          selectionManager.showContextMenu({}, {
-            x: mouseEvent.clientX,
-            y: mouseEvent.clientY
+        selectionManager.showContextMenu({}, {
+          x: mouseEvent.clientX,
+          y: mouseEvent.clientY
         });
         mouseEvent.preventDefault();
       });
@@ -111,32 +117,43 @@ export class Visual implements IVisual {
   }
 
   public update(options: VisualUpdateOptions) {
+    //variables declared in og script
+    //metadata: grabs the options from dataviews and does checks with that, no idea what it actually does
+    //newColumn: redundant but need it for RN because idk this is kinda dumb
     this.events.renderingStarted(options);
     this.settings = Visual.parseSettings(options && options.dataViews && options.dataViews[0]);
     const metadata = options.dataViews && options.dataViews[0] && options.dataViews[0].metadata;
     const newColumn = metadata && metadata.columns && metadata.columns[0];
+
+
     const objectCheck = metadata && metadata.objects;
     const properties = <any>dataViewObjects.getObject(objectCheck, "general") || {};
     let searchText = "";
 
+    //get the values of the columns to search by and transfer them into a blobal array
+    let Columnarray = []
+    Columnarray = options.dataViews[0].metadata.columns
+    this.colArray = Columnarray
+
+    // GRAB THE VALUES THAT ARE IN EACH COLUMN
+    // this will be used to check for which column to filter by later.
+    let ValueArray = options.dataViews[0].categorical.categories
+    this.valArray = ValueArray
+
     this.updateUiSizing();
 
-    // We had a column, but now it is empty, or it has changed.
+    // We had a column, but now it is empty, or it has changed.\
     if (options.dataViews && options.dataViews.length > 0 && this.column && (!newColumn || this.column.queryName !== newColumn.queryName)) {
       this.performSearch("");
-
       // Well, it hasn't changed, then lets try to load the existing search text.
     } else if (properties.filter) {
       if (options.jsonFilters && options.jsonFilters.length > 0) {
-        searchText = `${(<IAdvancedFilter[]>options.jsonFilters).map((f) => f.conditions.map((c) => c.value)).join(" ")}`;
+        searchText = `${(<AdvancedFilter[]>options.jsonFilters).map((f) => f.conditions.map((c) => c.value)).join(" ")}`;
       }
     }
-
     this.searchBox.property("value", searchText);
-    this.column = newColumn;
 
     this.events.renderingFinished(options);
-
   }
 
   /**
@@ -172,32 +189,117 @@ export class Visual implements IVisual {
   /** 
    * Perfom search/filtering in a column
    * @param {string} text - text to filter on
+   * @param testTarget used to hold the values for table and column
+   * @param count determine which field has the most values to order from
+   * @param filter used for AdvancedFilter
+   * @param action jsued for calling the FilterMerge.remove and .merge
+   * @param isBlank text if the field is blank
+   * @param preFilter filter out values based on which column has the most values
+   * for loop
+   * @param AdvancedFilter used for filtering visually
    */
   public performSearch(text: string) {
-    if (this.column) {
-      const isBlank = ((text || "") + "").match(/^\s*$/);
-      const target = {
-        table: this.column.queryName.substr(0, this.column.queryName.indexOf(".")),
-        column: this.column.queryName.substr(this.column.queryName.indexOf(".") + 1)
-      };
+    let testTarget: ITupleFilterTarget = []
+    //iterate through global array to grab the various element names earlier
+    //May be able to make more efficient by declaring all of this above but
+    //I'm not smart enough to do that and I want to finish this.
+    this.colArray.forEach(element => {
+      if (element) {
+        testTarget.push({
+          table: element.queryName.substr(0, element.queryName.indexOf(".")),
+          column: element.queryName.substr(element.queryName.indexOf(".") + 1)
+        })
 
-      let filter: any = null;
-      let action = FilterAction.remove;
-      if (!isBlank) {
-        filter = new AdvancedFilter(
-          target,
-          "And",
-          {
-            operator: "Contains",
-            value: text
-          }
-        );
-        action = FilterAction.merge;
       }
-      this.host.applyJsonFilter(filter, "general", "filter", action);
+    });
+
+    // Filter through the values in a partial match case for search val
+    // check the values in the valArray against the search
+    // iterate through each column sort via GREATEST match case
+    let count = 0
+    let filter: any = null;
+    let action = FilterAction.remove;
+    const isBlank = ((text || "") + "").match(/^\s*$/);
+
+    if (!isBlank) {
+      for (var i = 0; i < this.colArray.length; i++) {
+        let column = testTarget[i].column
+        let displayName = this.valArray[i].source.displayName
+        let values = this.valArray[i].values
+        let preFilter = []
+        if (typeof (values[0]) === "string") {
+          values = values.map(function (X) { return X.toUpperCase() })
+          preFilter = values.filter(x => x.includes(text.toUpperCase()))
+        } else if (typeof (values[0]) === "number") {
+          let regexTest = new RegExp(text)
+          preFilter = values.filter(function (x) {
+            if (regexTest.exec(x)) {
+              return x
+            }
+          })
+        }
+
+
+        // If the value of [0] is a number then parseing text as an number is necessary
+        // The only other option is a string based on how powerBI will order the data
+        // make sure that the column name is the display name and then filter. 
+        // for numbers filter as IS because we want exact matches, for string filter via contains
+        if (typeof (values[0]) === "number") {
+          if (column == displayName) {
+            //compare to previous instance and if greater use that
+            // aka if count is less than bool.length use this one
+            if (preFilter.length > count) {
+              count = preFilter.length
+              filter = new AdvancedFilter(
+                testTarget[i],
+                "And",
+                {
+                  operator: "Is",
+                  value: parseFloat(text)
+                }
+              );
+              action = FilterAction.merge
+
+            }
+
+            //if count is bigger skip
+            else if ((count > preFilter.length)) {
+            }
+
+
+          }
+        } else if (typeof (values[0]) === "string") {
+          if (column == displayName) {
+            //compare to previous instance and if greater use that
+            // aka if count is less than bool.length use this one
+            if (preFilter.length > count) {
+              count = preFilter.length
+              filter = new AdvancedFilter(
+                testTarget[i],
+                "And",
+                {
+                  operator: "Contains",
+                  value: text
+                }
+              );
+              action = FilterAction.merge
+
+            }
+
+            //if count is bigger skip
+            else if ((count > preFilter.length)) {
+              
+            }
+
+
+          }
+        }
+      }
     }
+    this.host.applyJsonFilter(filter, "general", "filter", action)
     this.searchBox.property("value", text);
   }
+
 
   private static parseSettings(dataView: DataView): VisualSettings {
     return <VisualSettings>VisualSettings.parse(dataView);
@@ -210,16 +312,16 @@ export class Visual implements IVisual {
    */
   public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject {
     let objects = <VisualObjectInstanceEnumerationObject>
-                VisualSettings.enumerateObjectInstances(
-                    this.settings || VisualSettings.getDefault(),
-                    options
-                );
+      VisualSettings.enumerateObjectInstances(
+        this.settings || VisualSettings.getDefault(),
+        options
+      );
     switch (options.objectName) {
       case 'textBox': {
-          if (!this.settings.textBox.border) {
-            delete objects.instances[0].properties.borderColor;
-          }
-          break;
+        if (!this.settings.textBox.border) {
+          delete objects.instances[0].properties.borderColor;
+        }
+        break;
       }
     }
     return objects;
