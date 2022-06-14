@@ -72,7 +72,7 @@
       "conditions": [
         {
           "field": {
-            "max": 1
+            "max":20 
           }
         }
       ],
