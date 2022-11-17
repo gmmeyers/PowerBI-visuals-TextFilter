@@ -1,1 +1,25 @@
-{"visual":{"name":"multitextfilter","displayName":"multitextfilter","guid":"multitextfilter83A57E5CAEB644B69ACEB9F007599396","visualClassName":"Visual","version":"1.1.0","description":"","supportUrl":"","gitHubUrl":""},"apiVersion":"3.8.0","author":{"name":"","email":""},"assets":{"icon":"assets/icon.png"},"externalJS":null,"style":"style/visual.less","capabilities":"capabilities.json","dependencies":null,"stringResources":[]}
+{
+  "visual": {
+    "name": "multitextfilter",
+    "displayName": "multitextfilter",
+    "guid": "multitextfilter83A57E5CAEB644B69ACEB9F007599396",
+    "visualClassName": "Visual",
+    "version": "1.1.0",
+    "description": "multiTextFilter",
+    "supportUrl": "https://github.com/gmmeyers/PowerBI-visuals-TextFilter",
+    "gitHubUrl": "https://github.com/gmmeyers/PowerBI-visuals-TextFilter"
+  },
+  "apiVersion": "3.8.0",
+  "author": {
+    "name": "max",
+    "email": "max@gmmeyers.com"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": null,
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "dependencies": null,
+  "stringResources": []
+}
