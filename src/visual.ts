@@ -199,17 +199,20 @@ export class Visual implements IVisual {
    * @param AdvancedFilter used for filtering visually
    */
   public performSearch(text: string) {
-    let testTarget: ITupleFilterTarget = []
+    let testTarget = []
+    let tfilter: ITupleFilterTarget = []
     //iterate through global array to grab the various element names earlier
     //May be able to make more efficient by declaring all of this above but
     //I'm not smart enough to do that and I want to finish this.
     this.colArray.forEach(element => {
       if (element) {
         testTarget.push({
+          column: element.queryName.substr(element.queryName.indexOf(".") + 1)
+      })
+        tfilter.push({
           table: element.queryName.substr(0, element.queryName.indexOf(".")),
           column: element.queryName.substr(element.queryName.indexOf(".") + 1)
-        })
-
+      })
       }
     });
 
@@ -223,7 +226,7 @@ export class Visual implements IVisual {
 
     if (!isBlank) {
       for (var i = 0; i < this.colArray.length; i++) {
-        let column = testTarget[i].column
+        let column = testTarget[i].column.toString()
         let displayName = this.valArray[i].source.displayName
         let values = this.valArray[i].values
         let preFilter = []
@@ -251,13 +254,14 @@ export class Visual implements IVisual {
             if (preFilter.length > count) {
               count = preFilter.length
               filter = new AdvancedFilter(
-                testTarget[i],
+                tfilter[i],
                 "And",
                 {
                   operator: "Is",
                   value: parseFloat(text)
                 }
               );
+              console.log("filter: " + filter)
               action = FilterAction.merge
 
             }
@@ -275,13 +279,14 @@ export class Visual implements IVisual {
             if (preFilter.length > count) {
               count = preFilter.length
               filter = new AdvancedFilter(
-                testTarget[i],
+                tfilter[i],
                 "And",
                 {
                   operator: "Contains",
                   value: text
                 }
               );
+              console.log("filter: " + filter)
               action = FilterAction.merge
 
             }
