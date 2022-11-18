@@ -4,7 +4,7 @@
     "displayName": "multitextfilter",
     "guid": "multitextfilter83A57E5CAEB644B69ACEB9F007599396",
     "visualClassName": "Visual",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "multiTextFilter",
     "supportUrl": "https://github.com/gmmeyers/PowerBI-visuals-TextFilter",
     "gitHubUrl": "https://github.com/gmmeyers/PowerBI-visuals-TextFilter"
