@@ -234,12 +234,7 @@ export class Visual implements IVisual {
           values = values.map(function (X) { return X.toUpperCase() })
           preFilter = values.filter(x => x.includes(text.toUpperCase()))
         } else if (typeof (values[0]) === "number") {
-          let regexTest = new RegExp(text)
-          preFilter = values.filter(function (x) {
-            if (regexTest.exec(x)) {
-              return x
-            }
-          })
+                    preFilter = values.filter(x => x == parseFloat(text))
         }
 
 
